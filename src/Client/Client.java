@@ -8,20 +8,23 @@ import java.util.*;
 public class Client {
 
     private Socket socket = null;
+    private DatagramSocket Dsocket = null;
     private DataInputStream input = null;
     private DataOutputStream out = null;
+    private FileInputStream fis = null;
+    private FileOutputStream fos = null;
     private boolean status = true;
 
     
-    public Client(String address, int port, String name)
+    public Client(String address, int port, int dport, String name)
     {
         Scanner scn = new Scanner(System.in);
         // establish a connection
         try
         {
-
             InetAddress ip = InetAddress.getByName("localhost");
             socket = new Socket(address, port);
+            Dsocket = new DatagramSocket();
             out    = new DataOutputStream(socket.getOutputStream());
             input = new DataInputStream(socket.getInputStream());
             status = true;
@@ -118,7 +121,7 @@ public class Client {
         {
             System.out.println(i);
         }
-        Client client =  new Client("127.0.0.1", 5000, name);
+        Client client =  new Client("127.0.0.1", 5000, 5001, name);
     }
     
 }
