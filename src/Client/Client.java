@@ -14,7 +14,8 @@ public class Client {
     private FileInputStream fis = null;
     private FileOutputStream fos = null;
     private boolean status = true;
-
+    private byte buf[] = null; 
+    private InetAddress ip = null;
     
     public Client(String address, int port, int dport, String name)
     {
@@ -22,7 +23,7 @@ public class Client {
         // establish a connection
         try
         {
-            InetAddress ip = InetAddress.getByName("localhost");
+            ip = InetAddress.getByName("localhost");
             socket = new Socket(address, port);
             Dsocket = new DatagramSocket();
             out    = new DataOutputStream(socket.getOutputStream());
@@ -51,13 +52,26 @@ public class Client {
                      
                     try 
                     {
-                        // write on the output stream
-                        out.writeUTF(msg);
-                        if(msg.equals("logout"))
+                        // write on the output stream                        
+                        StringTokenizer st = new StringTokenizer(msg);
+                        String tok = st.nextToken();
+                        if(tok.equalsIgnoreCase("logout"))
                         {
+                            out.writeUTF(msg);                            
                             status = false;
                             return;
                         }
+                        else if(tok.equalsIgnoreCase("file"))
+                        {
+                            out.writeUTF("Sending File");
+                            buf = msg.getBytes();
+                            DatagramPacket DpSend = new DatagramPacket(buf, buf.length, ip, 5001);
+                            Dsocket.send(DpSend);
+                            out.writeUTF("File Sent");
+                            continue;
+                        }
+                        out.writeUTF(msg);
+                        
                     } 
                     catch (IOException e) 
                     {
@@ -78,10 +92,16 @@ public class Client {
                     {
                         if(!status)
                         {
-                            socket.close();
-                            input.close();
-                            out.close();
-                            return;
+                            String Emsg = input.readUTF();
+                            if(Emsg.equalsIgnoreCase("Successfully logged out"))
+                            {
+                                System.out.println(Emsg);
+                                socket.close();
+                                input.close();
+                                out.close();
+                                return;
+                            }
+                            
                         }
                         // read the message sent to this client
                         String msg = input.readUTF();
