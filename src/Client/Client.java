@@ -8,26 +8,29 @@ import java.util.*;
 public class Client {
 
     private Socket socket = null;
-    private DatagramSocket Dsocket = null;
+    private DatagramSocket DsocketS = null;
+    private DatagramSocket DsocketR = null;
     private DataInputStream input = null;
     private DataOutputStream out = null;
     private FileInputStream fis = null;
     private FileOutputStream fos = null;
     private boolean status = true;
-    private byte buf[] = null; 
+    private byte[] bufS = null; 
+    private byte[] bufR = null; 
     private InetAddress ip = null;
     
     public Client(String address, int port, int dport, String name)
     {
         Scanner scn = new Scanner(System.in);
-        // establish a connection
         try
         {
             ip = InetAddress.getByName("localhost");
             socket = new Socket(address, port);
-            Dsocket = new DatagramSocket();
+            DsocketS = new DatagramSocket();
+            DsocketR = new DatagramSocket(5003);
             out    = new DataOutputStream(socket.getOutputStream());
             input = new DataInputStream(socket.getInputStream());
+            bufR = new byte[4096];
             status = true;
             out.writeUTF(name);
         }
@@ -40,19 +43,15 @@ public class Client {
             System.out.println(i);
         }
  
-        // string to read message from input
         Thread sendMessage = new Thread(new Runnable() 
         {
             @Override
             public void run() {
                 while (true) {
  
-                    // read the message to deliver.
-                    String msg = scn.nextLine();
-                     
+                    String msg = scn.nextLine();                     
                     try 
                     {
-                        // write on the output stream                        
                         StringTokenizer st = new StringTokenizer(msg);
                         String tok = st.nextToken();
                         if(tok.equalsIgnoreCase("logout"))
@@ -64,9 +63,9 @@ public class Client {
                         else if(tok.equalsIgnoreCase("file"))
                         {
                             out.writeUTF("Sending File");
-                            buf = msg.getBytes();
-                            DatagramPacket DpSend = new DatagramPacket(buf, buf.length, ip, 5001);
-                            Dsocket.send(DpSend);
+                            bufS = msg.getBytes();
+                            DatagramPacket DpSend = new DatagramPacket(bufS, bufS.length, ip, 5001);
+                            DsocketS.send(DpSend);
                             out.writeUTF("File Sent");
                             continue;
                         }
@@ -81,7 +80,6 @@ public class Client {
             }
         });
          
-        // readMessage thread
         Thread readMessage = new Thread(new Runnable() 
         {
             @Override
@@ -103,8 +101,24 @@ public class Client {
                             }
                             
                         }
-                        // read the message sent to this client
                         String msg = input.readUTF();
+                        StringTokenizer st = new StringTokenizer(msg, ":");
+                        if(st.countTokens() > 1)
+                        {
+                            System.out.println("LOC A");
+                            String check = st.nextToken();
+                            check = st.nextToken();
+                            if(check.equalsIgnoreCase(" Sending File"))
+                            {
+                                System.out.println("LOC B");
+                                DatagramPacket dp = new DatagramPacket(bufR, bufR.length);
+                                DsocketR.receive(dp);
+                                String str = new String(dp.getData(), 0, dp.getLength());
+                                System.out.println("PACKET HAD - "+str);
+                                continue;
+                            }
+                        }
+                                
                         System.out.println(msg);
                     } 
                     catch (EOFException f)
@@ -122,12 +136,10 @@ public class Client {
         
         sendMessage.start();
         readMessage.start();
-        // close the connection
 
     }
     
     public static void main(String[] args) {
-        // TODO code application logic here
         String name = "";
         BufferedReader reader = 
                    new BufferedReader(new InputStreamReader(System.in));
