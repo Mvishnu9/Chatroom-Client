@@ -62,10 +62,23 @@ public class Client {
                         }
                         else if(tok.equalsIgnoreCase("file"))
                         {
+                            System.out.println("Enter the path of the file to be sent");
+                            String path = scn.nextLine();
+                            File FileToSend = new File(path);
+                            if(!FileToSend.exists())
+                            {
+                                System.out.println("Specified File does not exist, please give absolute path");
+                                continue;
+                            }
                             out.writeUTF("Sending File");
-                            bufS = msg.getBytes();
-                            DatagramPacket DpSend = new DatagramPacket(bufS, bufS.length, ip, 5001);
-                            DsocketS.send(DpSend);
+                            fis = new FileInputStream(path);
+                            int count;
+                            while((count = fis.read(bufS))!= -1)
+                            {
+                                DatagramPacket dp = new DatagramPacket(bufS, count, ip, 5001);
+                                DsocketS.send(dp);                                
+                            }
+                            fis.close();
                             out.writeUTF("File Sent");
                             continue;
                         }
@@ -105,12 +118,10 @@ public class Client {
                         StringTokenizer st = new StringTokenizer(msg, ":");
                         if(st.countTokens() > 1)
                         {
-                            System.out.println("LOC A");
                             String check = st.nextToken();
                             check = st.nextToken();
                             if(check.equalsIgnoreCase(" Sending File"))
                             {
-                                System.out.println("LOC B");
                                 DatagramPacket dp = new DatagramPacket(bufR, bufR.length);
                                 DsocketR.receive(dp);
                                 String str = new String(dp.getData(), 0, dp.getLength());
