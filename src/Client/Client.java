@@ -2,12 +2,15 @@
 package Client;
 import java.net.*;
 import java.io.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 
 public class Client {
 
     private Socket socket = null;
+    private Socket Fsocket = null;
     private DatagramSocket DsocketS = null;
     private DatagramSocket DsocketR = null;
     private DataInputStream input = null;
@@ -27,10 +30,12 @@ public class Client {
             ip = InetAddress.getByName("localhost");
             socket = new Socket(address, port);
             DsocketS = new DatagramSocket();
-            DsocketR = new DatagramSocket(5003);
-            out    = new DataOutputStream(socket.getOutputStream());
+//           DsocketR = new DatagramSocket(5003);
+//            Fsocket = new Socket(address, 5004);
+            out = new DataOutputStream(socket.getOutputStream());
             input = new DataInputStream(socket.getInputStream());
             bufR = new byte[4096];
+            bufS = new byte[4096];
             status = true;
             out.writeUTF(name);
         }
@@ -42,7 +47,8 @@ public class Client {
         {
             System.out.println(i);
         }
- 
+        
+
         Thread sendMessage = new Thread(new Runnable() 
         {
             @Override
@@ -60,7 +66,7 @@ public class Client {
                             status = false;
                             return;
                         }
-                        else if(tok.equalsIgnoreCase("file"))
+                        else if(tok.equalsIgnoreCase("udp"))
                         {
                             System.out.println("Enter the path of the file to be sent");
                             String path = scn.nextLine();
@@ -70,7 +76,7 @@ public class Client {
                                 System.out.println("Specified File does not exist, please give absolute path");
                                 continue;
                             }
-                            out.writeUTF("Sending File");
+                            out.writeUTF("Sending File UDP");
                             fis = new FileInputStream(path);
                             int count;
                             while((count = fis.read(bufS))!= -1)
@@ -80,6 +86,31 @@ public class Client {
                             }
                             fis.close();
                             out.writeUTF("File Sent");
+                            continue;
+                        }
+                        else if(tok.equalsIgnoreCase("tcp"))
+                        {
+                            System.out.println("Enter the path of the file to be sent");
+                            String path = scn.nextLine();
+                            File FileToSend = new File(path);
+                            String fnam = FileToSend.getName();
+                            if(!FileToSend.exists())
+                            {
+                                System.out.println("Specified File does not exist, please give absolute path");
+                                continue;
+                            }
+                            out.writeUTF("Sending File TCP :"+fnam);
+                            fis = new FileInputStream(path);
+//                            OutputStream os = Fsocket.getOutputStream();
+                            int count;
+                            bufS = new byte[4096];
+                            while((count = fis.read(bufS)) != -1)
+                            {
+                                out.write(bufS);
+                                bufS = new byte[4096];
+                            }
+                            out.flush();
+                            fis.close();
                             continue;
                         }
                         out.writeUTF(msg);
@@ -111,7 +142,7 @@ public class Client {
                                 input.close();
                                 out.close();
                                 return;
-                            }
+                            }                            
                             
                         }
                         String msg = input.readUTF();
@@ -120,12 +151,29 @@ public class Client {
                         {
                             String check = st.nextToken();
                             check = st.nextToken();
-                            if(check.equalsIgnoreCase(" Sending File"))
+                            if(check.equalsIgnoreCase(" Sending File UDP"))
                             {
                                 DatagramPacket dp = new DatagramPacket(bufR, bufR.length);
                                 DsocketR.receive(dp);
                                 String str = new String(dp.getData(), 0, dp.getLength());
                                 System.out.println("PACKET HAD - "+str);
+                                continue;
+                            }
+                            else if(check.equalsIgnoreCase(" Sending File TCP"))
+                            {
+                                String fnam = st.nextToken();
+                                String Dir = CreateDir();
+                                Path Fpath = Paths.get(Dir, fnam);
+                                File fil = new File(Fpath.toString());                                
+                                fos = new FileOutputStream(fil);
+                                int count;
+                                bufR = new byte[4096];
+                                while((count = input.read(bufR)) != -1)
+                                {
+                                    fos.write(bufR);
+                                    bufR = new byte[4096];
+                                }
+                                fos.close();        
                                 continue;
                             }
                         }
@@ -148,6 +196,23 @@ public class Client {
         sendMessage.start();
         readMessage.start();
 
+    }
+    
+    public String CreateDir() throws IOException
+    {
+        Path currentRelativePath = Paths.get("");
+        String apath = currentRelativePath.toAbsolutePath().normalize().toString();
+        Path Dir = Paths.get(apath,"ChatDownloads");
+        File dir = new File(apath);
+        if (dir.exists()) 
+        {
+            return Dir.toString();
+        }
+        if(dir.mkdirs()) 
+        {
+            return Dir.toString();
+        }
+        throw new IOException("Failed to create directory '" + dir.getAbsolutePath() + "' for an unknown reason.");
     }
     
     public static void main(String[] args) {
