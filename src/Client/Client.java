@@ -15,6 +15,8 @@ public class Client {
     private DatagramSocket DsocketR = null;
     private DataInputStream input = null;
     private DataOutputStream out = null;
+    private DataInputStream fin = null;
+    private DataOutputStream fout = null;
     private FileInputStream fis = null;
     private FileOutputStream fos = null;
     private boolean status = true;
@@ -31,9 +33,11 @@ public class Client {
             socket = new Socket(address, port);
             DsocketS = new DatagramSocket();
 //           DsocketR = new DatagramSocket(5003);
-//            Fsocket = new Socket(address, 5004);
+            Fsocket = new Socket(address, 5004);
             out = new DataOutputStream(socket.getOutputStream());
             input = new DataInputStream(socket.getInputStream());
+            fout = new DataOutputStream(Fsocket.getOutputStream());
+            fin = new DataInputStream(Fsocket.getInputStream());
             bufR = new byte[4096];
             bufS = new byte[4096];
             status = true;
@@ -76,7 +80,7 @@ public class Client {
                                 System.out.println("Specified File does not exist, please give absolute path");
                                 continue;
                             }
-                            out.writeUTF("Sending File UDP");
+                            out.writeUTF("Sending File UDP ");
                             fis = new FileInputStream(path);
                             int count;
                             while((count = fis.read(bufS))!= -1)
@@ -94,23 +98,26 @@ public class Client {
                             String path = scn.nextLine();
                             File FileToSend = new File(path);
                             String fnam = FileToSend.getName();
+                            long Flen = FileToSend.length();
                             if(!FileToSend.exists())
                             {
                                 System.out.println("Specified File does not exist, please give absolute path");
                                 continue;
                             }
-                            out.writeUTF("Sending File TCP :"+fnam);
+                            
+                            out.writeUTF("Sending File TCP :"+fnam+":"+Long.toString(Flen));
                             fis = new FileInputStream(path);
 //                            OutputStream os = Fsocket.getOutputStream();
                             int count;
                             bufS = new byte[4096];
-                            while((count = fis.read(bufS)) != -1)
+                            while((count = fis.read(bufS)) > 0)
                             {
-                                out.write(bufS);
+                                fout.write(bufS);
                                 bufS = new byte[4096];
-                            }
-                            out.flush();
+                            }                           
+                            fout.flush();
                             fis.close();
+                            out.writeUTF("File Sent");
                             continue;
                         }
                         out.writeUTF(msg);
@@ -151,7 +158,7 @@ public class Client {
                         {
                             String check = st.nextToken();
                             check = st.nextToken();
-                            if(check.equalsIgnoreCase(" Sending File UDP"))
+                            if(check.equalsIgnoreCase(" Sending File UDP "))
                             {
                                 DatagramPacket dp = new DatagramPacket(bufR, bufR.length);
                                 DsocketR.receive(dp);
@@ -159,20 +166,26 @@ public class Client {
                                 System.out.println("PACKET HAD - "+str);
                                 continue;
                             }
-                            else if(check.equalsIgnoreCase(" Sending File TCP"))
-                            {
+                            else if(check.equalsIgnoreCase(" Sending File TCP "))
+                            {                                
                                 String fnam = st.nextToken();
                                 String Dir = CreateDir();
                                 Path Fpath = Paths.get(Dir, fnam);
+                                String len = st.nextToken();
+                                long lenl = Long.parseLong(len);
+                                System.out.println("Length of file = "+lenl);
                                 File fil = new File(Fpath.toString());                                
                                 fos = new FileOutputStream(fil);
+                                System.out.println("Saving File to "+Fpath.toString());
                                 int count;
                                 bufR = new byte[4096];
-                                while((count = input.read(bufR)) != -1)
+                                while((lenl > 0)&&((count = fin.read(bufR)) > 0))
                                 {
+                                    lenl = lenl - 4096;
                                     fos.write(bufR);
                                     bufR = new byte[4096];
                                 }
+                                System.out.println("File Downloaded successfully");
                                 fos.close();        
                                 continue;
                             }
@@ -203,7 +216,7 @@ public class Client {
         Path currentRelativePath = Paths.get("");
         String apath = currentRelativePath.toAbsolutePath().normalize().toString();
         Path Dir = Paths.get(apath,"ChatDownloads");
-        File dir = new File(apath);
+        File dir = new File(Dir.toString());
         if (dir.exists()) 
         {
             return Dir.toString();
