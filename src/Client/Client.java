@@ -30,7 +30,9 @@ public class Client {
         try
         {
             ip = InetAddress.getByName("localhost");
-            socket = new Socket(address, port);
+            socket = new Socket();
+            socket.connect(new InetSocketAddress(address, port), 1000);
+//            socket = new Socket(address, port);
             DsocketS = new DatagramSocket();
 //           DsocketR = new DatagramSocket(5003);
             Fsocket = new Socket(address, 5004);
@@ -42,6 +44,11 @@ public class Client {
             bufS = new byte[4096];
             status = true;
             out.writeUTF(name);
+        }
+        catch(SocketTimeoutException ste)
+        {
+            System.out.println("Connection timed out, please verify if the Server is running at the given ip and port");
+            return;
         }
         catch(UnknownHostException u)
         {
@@ -75,15 +82,18 @@ public class Client {
                             System.out.println("Enter the path of the file to be sent");
                             String path = scn.nextLine();
                             File FileToSend = new File(path);
+                            String fnam = FileToSend.getName();
+                            long Flen = FileToSend.length();
                             if(!FileToSend.exists())
                             {
                                 System.out.println("Specified File does not exist, please give absolute path");
                                 continue;
-                            }
-                            out.writeUTF("Sending File UDP ");
+                            }                            
+                            out.writeUTF("Sending File UDP :"+fnam+":"+Long.toString(Flen));
                             fis = new FileInputStream(path);
                             int count;
-                            while((count = fis.read(bufS))!= -1)
+                            bufS = new byte[4096];
+                            while((count = fis.read(bufS))>0)
                             {
                                 DatagramPacket dp = new DatagramPacket(bufS, count, ip, 5001);
                                 DsocketS.send(dp);                                
@@ -107,7 +117,6 @@ public class Client {
                             
                             out.writeUTF("Sending File TCP :"+fnam+":"+Long.toString(Flen));
                             fis = new FileInputStream(path);
-//                            OutputStream os = Fsocket.getOutputStream();
                             int count;
                             bufS = new byte[4096];
                             while((count = fis.read(bufS)) > 0)
@@ -131,7 +140,8 @@ public class Client {
             }
         });
          
-        Thread readMessage = new Thread(new Runnable() 
+        Thread readMessage; 
+        readMessage = new Thread(new Runnable() 
         {
             @Override
             public void run() {
@@ -160,10 +170,21 @@ public class Client {
                             check = st.nextToken();
                             if(check.equalsIgnoreCase(" Sending File UDP "))
                             {
+                                String fnam = st.nextToken();
+                                String Dir = CreateDir();
+                                Path Fpath = Paths.get(Dir, fnam);
+                                String len = st.nextToken();
+                                long lenl = Long.parseLong(len);
+                                System.out.println("Length of file = "+lenl);
+                                File fil = new File(Fpath.toString());                                
+                                fos = new FileOutputStream(fil);
+                                System.out.println("Saving File to "+Fpath.toString());
+                                bufR = new byte[4096];
                                 DatagramPacket dp = new DatagramPacket(bufR, bufR.length);
-                                DsocketR.receive(dp);
-                                String str = new String(dp.getData(), 0, dp.getLength());
-                                System.out.println("PACKET HAD - "+str);
+//                                while(DsocketR.receive(dp))
+                                    
+                                    DsocketR.receive(dp);
+                                
                                 continue;
                             }
                             else if(check.equalsIgnoreCase(" Sending File TCP "))
@@ -242,7 +263,29 @@ public class Client {
         {
             System.out.println(i);
         }
-        Client client =  new Client("127.0.0.1", 5000, 5001, name);
+        System.out.println("Enter IP Address of server to connect to -");
+        String ip = "";
+        try
+        {
+            ip = reader.readLine();
+        }
+        catch(IOException i)
+        {
+            System.out.println(i);
+        }
+        String port = "";
+        int portno = 5000;
+        System.out.println("Enter port of server to connect to -");
+        try
+        {
+            port = reader.readLine();
+            portno = Integer.parseInt(port);
+        }
+        catch(IOException i)
+        {
+            System.out.println(i);
+        }
+        Client client =  new Client(ip, portno, 5001, name);
     }
     
 }
